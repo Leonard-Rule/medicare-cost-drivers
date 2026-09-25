@@ -1,0 +1,7 @@
+data/raw/*.csv
+data/*.duckdb
+data/*.duckdb.wal
+.venv/
+__pycache__/
+docs/*.txt
+docs/Milbank_*.pdf
