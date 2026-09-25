@@ -7,6 +7,21 @@ drugs selected for Medicare price negotiation.
 
 > Built only from public specifications and public synthetic data. No employer code, logic, or data.
 
+## Results at a glance
+![Allowed PMPM by service category](output/charts/pmpm_by_category.png)
+![Change in PMPM by category](output/charts/pmpm_change_by_category.png)
+
+- **Total allowed PMPM went from $1,657 (2016) to $1,987 (2022).** Inpatient (+$185) and outpatient (+$105)
+  account for most of the growth, so they'd be the first cost drivers to dig into.
+- **Primary care is 1.7–2.0% of medical spend** under the Milbank definition. That's low because the synthetic
+  carrier file has no office E&M visits (see limitations).
+- **All 20 reconciliation checks pass.** The four FLAGs are data limitations in the synthetic file, and the
+  pipeline reports them rather than hiding them (`output/validation.csv`).
+- **The synthetic data isn't realistic in scale.** Outpatient runs about $1,000 PMPM, and 31% of it is dialysis
+  claims. Read these results as a demonstration of the method, not as benchmarks.
+
+Full methodology, judgment calls and limitations are in **[docs/METHODS.md](docs/METHODS.md)**.
+
 ## Data
 - **CMS Synthetic Medicare Enrollment, FFS Claims, and PDE** (data.cms.gov, 2023 release): 8,671 synthetic
   beneficiaries, enrollment 2015–2025, pipe-delimited. Files: beneficiary, inpatient, outpatient, carrier,
@@ -21,43 +36,58 @@ drugs selected for Medicare price negotiation.
 ```
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python src/build_db.py          # loads data/raw/*.csv.gz -> data/cost_drivers.duckdb
+.venv/bin/python src/run_pipeline.py      # runs sql/01-06, validation checks, writes output/*.csv
+.venv/bin/python src/charts.py            # README charts -> output/charts/
+.venv/bin/python src/build_twbx.py        # Tableau workbook -> tableau/
 ```
 
-## Plan (one week)
-| Step | Output | Spec section |
-|---|---|---|
-| 1. Member months | Part A+B FFS months per bene-year (HI/SMI months minus HMO months) | CGT specs, denominators |
-| 2. Topline service categories | Every claim line assigned to 1 of 6 categories | "Defining Service Categories", p. 5–7 |
-| 3. PMPM by category × year | Table + trend chart | Cost-driver analyses |
-| 4. Primary care spend | Primary care $ and % of total (provider type, POS, HCPCS/CPT lists) | "Primary Care Claims Spending", Steps 1–6 |
-| 5. Pharmacy | Retail (PDE) vs. medical pharmacy (J-codes on outpatient/carrier lines) | Retail and Medical Pharmacy specs |
-| 6. Part D negotiated drugs | Spend on the 2026 Maximum Fair Price drugs (NDC match) | Extension, mirrors real-world MFP savings work |
-| 7. Validation + write-up | Reconciliation checks, 1-page methods memo, 2–3 charts | — |
+## Pipeline
+| Step | SQL | What it does | Spec section |
+|---|---|---|---|
+| 1. Member months | `sql/01_member_months.sql` | Beneficiary-months from the monthly arrays: Part A+B, not MA; Part D and dual flags | CGT specs, denominators |
+| 2. Standardize claims | `sql/02_claim_lines.sql` | 9 files → one table, allowed $ by file, header dedupe, paid-as-primary flag | Cost driver specs, unit of analysis |
+| 3. Service categories | `sql/03_service_categories.sql` | 6 topline categories + subcategories by bill type / POS; eligible-month join | "Defining Service Categories", pp. 5–8 |
+| 4. PMPM + growth | `sql/04_pmpm.sql` | PMPM by category and year, year-over-year growth, CAGR, dashboard fact tables | Cost driver analyses |
+| 5. Primary care | `sql/05_primary_care.sql` | Spec Steps 1–6: codes, specialty, POS, wellness filter, G0463 split billing, FQHC | "Primary Care Claims Spending", Steps 1–6 |
+| 6. Validation | `sql/06_validation.sql` | Row counts, dollar reconciliation, eligibility match, PMPM rebuild, data-quality flags | — |
 
-### Draft mapping: Medicare FFS file → Milbank topline category
-Verify each line against the spec before using it.
-- **Inpatient Hospital**: `inpatient` claims, bill type 11x/41x (Medicare CLM_FAC_TYPE_CD=1 + CLM_SRVC_CLSFCTN_TYPE_CD=1)
-- **Outpatient Hospital**: `outpatient` claims, bill type 13x/85x (CAH), incl. ER and observation, **minus
-  medical-pharmacy lines** if they're broken out
-- **Professional**: `carrier` lines (CMS-1500); use POS/specialty for subcategories
-- **Long-Term Care**: `snf` (and HHA? The spec lists HCBS under LTC; decide and document it)
-- **Retail Pharmacy**: `pde`, TOT_RX_CST_AMT or plan paid (pick one allowed-amount proxy and document it)
-- **Other**: `dme`, `hospice`, `hha` (if not LTC), anything left over
-- Dollars: Medicare paid (`CLM_PMT_AMT`, line `LINE_NCH_PMT_AMT` / `REV_CNTR_PMT_AMT_AMT`). The specs use
-  **allowed** amounts. Approximate allowed = paid + beneficiary cost share + primary payer paid, and document that.
+Next: retail vs. medical pharmacy (J-codes) and Part D spend on the negotiated (Maximum Fair Price) drugs.
 
-## First findings (smoke test, `sql/00_smoke_test.sql`)
-- The load works: 1.12M carrier lines, 575K outpatient lines, 58K inpatient, 516K PDE; ~75K–104K FFS member months per year.
-- **Data-quality flag:** outpatient comes to ~$940–1,130 PMPM, far above real Medicare FFS (~$150–250). Total
-  synthetic spend isn't realistic in scale. Treat results as a **methods demonstration**, not real-world
-  benchmarks, and say so in the write-up. Check whether outpatient headers repeat or line amounts are inflated.
-- DME is almost empty (~$0.28 PMPM), so the synthetic DME file is sparse.
+## Interactive dashboard (`dashboard/`)
+`dashboard/index.html` is a self-contained D3 dashboard. D3 and the data are bundled next to it, so it opens
+straight from disk. It includes filters for Medicaid dual status, age band and sex, and every chart recomputes
+PMPM from the member-month and spend facts. Also in the dashboard: stacked PMPM by category with a year
+drill-down into subcategories, indexed growth by category, primary care share, and the validation checks. It
+supports dark mode and has a table view.
+
+## Tableau (`tableau/`)
+`Medicare Cost Drivers.twbx` packages `output/tableau_data.csv` with a data source, the PMPM calculations,
+four sheets and a dashboard. `src/build_twbx.py` generates it (an unpackaged `.twb` sits next to it for
+diffing). PMPM uses `{FIXED [yr] : SUM([ab_mm])}` as the denominator, so the demographic filters are context
+filters.
+
+## Outputs (`output/`)
+| File | Grain |
+|---|---|
+| `pmpm_by_category.csv`, `pmpm_total.csv`, `pmpm_growth.csv` | year × service category |
+| `primary_care_by_year.csv`, `primary_care_by_service.csv` | year (× service group) |
+| `spend_fact.csv` | year × category × subcategory × type of service × dual × age band × sex (allowed, paid, rows, benes) |
+| `mm_fact.csv` | year × dual × age band × sex (A+B FFS and Part D member months) |
+| `validation.csv` | one row per check |
+
+`spend_fact` and `mm_fact` are the dashboard/Tableau sources. PMPM for any slice is sum(allowed) / sum(member
+months) over that slice. Check 6 confirms that rebuilding PMPM from these two tables gives the same numbers as
+the SQL.
 
 ## Layout
 ```
 data/raw/        source files, gzipped (.csv.gz)
 data/*.duckdb    local database (gitignored)
-docs/            specs, CMS user guide, sources
-sql/             analysis queries, numbered by step
-src/             Python: load, build tables, charts
+docs/            methods, CMS user guide, sources
+ref/             Milbank primary care code lists (Appendix A–C, codes only)
+sql/             analysis steps, run in order by src/run_pipeline.py
+src/             Python: load, run pipeline, charts, Tableau build
+output/          result CSVs and charts
+dashboard/       D3 dashboard (index.html + bundled data.js, d3)
+tableau/         Tableau packaged workbook
 ```
