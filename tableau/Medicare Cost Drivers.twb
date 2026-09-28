@@ -112,7 +112,6 @@
         <cols>[federated.0mcd0pmpm00001].[none:yr:ok]</cols>
       </table>
     </worksheet></worksheets>
-  
   <dashboards>
     <dashboard name='Cost Drivers'>
       <style />
@@ -130,5 +129,17 @@
         </zone>
       </zones>
     </dashboard>
-  </dashboards>
+  </dashboards><windows source-height='30'><window class='worksheet' name="PMPM by Category"><cards>
+          <edge name='left'><strip size='160'><card type='pages' /><card type='filters' /><card type='marks' /></strip></edge>
+          <edge name='top'><strip size='2147483647'><card type='columns' /></strip><strip size='2147483647'><card type='rows' /></strip><strip size='31'><card type='title' /></strip></edge>
+        </cards></window><window class='worksheet' name="Total PMPM Trend"><cards>
+          <edge name='left'><strip size='160'><card type='pages' /><card type='filters' /><card type='marks' /></strip></edge>
+          <edge name='top'><strip size='2147483647'><card type='columns' /></strip><strip size='2147483647'><card type='rows' /></strip><strip size='31'><card type='title' /></strip></edge>
+        </cards></window><window class='worksheet' name="Subcategory PMPM"><cards>
+          <edge name='left'><strip size='160'><card type='pages' /><card type='filters' /><card type='marks' /></strip></edge>
+          <edge name='top'><strip size='2147483647'><card type='columns' /></strip><strip size='2147483647'><card type='rows' /></strip><strip size='31'><card type='title' /></strip></edge>
+        </cards></window><window class='worksheet' name="Primary Care Share"><cards>
+          <edge name='left'><strip size='160'><card type='pages' /><card type='filters' /><card type='marks' /></strip></edge>
+          <edge name='top'><strip size='2147483647'><card type='columns' /></strip><strip size='2147483647'><card type='rows' /></strip><strip size='31'><card type='title' /></strip></edge>
+        </cards></window></windows>
 </workbook>

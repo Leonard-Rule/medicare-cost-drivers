@@ -213,23 +213,44 @@ def dashboard_xml():
     </dashboard>
   </dashboards>"""
 
-def workbook_xml():
+CARDS = """<cards>
+          <edge name='left'><strip size='160'><card type='pages' /><card type='filters' /><card type='marks' /></strip></edge>
+          <edge name='top'><strip size='2147483647'><card type='columns' /></strip><strip size='2147483647'><card type='rows' /></strip><strip size='31'><card type='title' /></strip></edge>
+        </cards>"""
+
+def windows_xml(sheets):
+    """Worksheet windows in the layout Tableau itself saves (card strips for shelves, filters, marks)."""
+    return ("<windows source-height='30'>" + "".join(
+        f"<window class='worksheet' name={Q(n)}>{CARDS}</window>" for n in sheets) + "</windows>")
+
+def blank_worksheet(name):
+    return (f"<worksheet name={Q(name)}><table><view><datasources /><aggregation value='true' /></view>"
+            "<style /><panes><pane selection-relaxation-option='selection-relaxation-allow'>"
+            "<view><breakdown value='auto' /></view><mark class='Automatic' /></pane></panes>"
+            "<rows /><cols /></table></worksheet>")
+
+SHEETS = ["PMPM by Category", "Total PMPM Trend", "Subcategory PMPM", "Primary Care Share"]
+
+def workbook_xml(data_only=False):
+    """Full workbook, or (data_only) just the data source + calculated fields and one blank sheet."""
+    body = (f"<worksheets>{blank_worksheet('Sheet 1')}</worksheets>{windows_xml(['Sheet 1'])}" if data_only
+            else f"{worksheets_xml()}{dashboard_xml()}{windows_xml(SHEETS)}")
     return f"""<?xml version='1.0' encoding='utf-8' ?>
 <workbook original-version='18.1' source-build='2023.1.0 (20231.23.0310.1045)' source-platform='win' version='18.1' xmlns:user='http://www.tableausoftware.com/xml/user'>
   <preferences><preference name='ui.encoding.shelf.height' value='24' /><preference name='ui.shelf.height' value='26' /></preferences>
   {datasource_xml()}
-  {worksheets_xml()}
-  {dashboard_xml()}
+  {body}
 </workbook>
 """
 
 if __name__ == "__main__":
-    xml = workbook_xml()
     import xml.dom.minidom as md
-    md.parseString(xml.encode())          # fail fast on malformed XML
     OUT.parent.mkdir(exist_ok=True)
-    (OUT.parent / "Medicare Cost Drivers.twb").write_text(xml)   # unpackaged copy, easy to diff
-    with zipfile.ZipFile(OUT, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("Medicare Cost Drivers.twb", xml)
-        z.write(CSV, "Data/output/tableau_data.csv")
-    print("wrote", OUT.relative_to(ROOT), f"({OUT.stat().st_size / 1024:.0f} KB)")
+    for out, data_only in [(OUT, False), (OUT.with_name("Medicare Cost Drivers (data only).twbx"), True)]:
+        xml = workbook_xml(data_only)
+        md.parseString(xml.encode())          # fail fast on malformed XML
+        (out.with_suffix(".twb")).write_text(xml)   # unpackaged copy, easy to diff
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr(out.with_suffix(".twb").name, xml)
+            z.write(CSV, "Data/output/tableau_data.csv")
+        print("wrote", out.relative_to(ROOT), f"({out.stat().st_size / 1024:.0f} KB)")
