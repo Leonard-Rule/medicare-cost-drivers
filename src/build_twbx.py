@@ -103,7 +103,7 @@ def datasource_xml():
       </connection>
       <aliases enabled='yes' />
       {cols}
-      <layout dim-ordering='alphabetic' measure-ordering='alphabetic' show-structure='true' />
+      <layout dim-ordering='alphabetic' dim-percentage='0.5' measure-ordering='alphabetic' measure-percentage='0.4' show-structure='true' />
     </datasource>
   </datasources>"""
 
@@ -213,11 +213,6 @@ def dashboard_xml():
     </dashboard>
   </dashboards>"""
 
-def windows_xml():
-    ws = "".join(f"<window class='worksheet' name={Q(n)} />" for n in
-                 ["PMPM by Category", "Total PMPM Trend", "Subcategory PMPM", "Primary Care Share"])
-    return f"<windows source-height='30'>{ws}<window class='dashboard' maximized='true' name='Cost Drivers' /></windows>"
-
 def workbook_xml():
     return f"""<?xml version='1.0' encoding='utf-8' ?>
 <workbook original-version='18.1' source-build='2023.1.0 (20231.23.0310.1045)' source-platform='win' version='18.1' xmlns:user='http://www.tableausoftware.com/xml/user'>
@@ -225,7 +220,6 @@ def workbook_xml():
   {datasource_xml()}
   {worksheets_xml()}
   {dashboard_xml()}
-  {windows_xml()}
 </workbook>
 """
 

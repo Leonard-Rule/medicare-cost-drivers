@@ -2,8 +2,11 @@
 
 Portfolio project for Leo Rule. It applies the published **Peterson-Milbank consensus cost-driver
 specifications** to CMS's public **synthetic Medicare FFS claims**. The goal is to show claims methodology end to
-end: service-category mapping, member months, PMPM trends, primary care share of spend, and a Part D view of the
-drugs selected for Medicare price negotiation.
+end: service-category mapping, member months, PMPM trends and primary care share of spend.
+
+Just want the results? The simplified repo
+**[medicare-cost-drivers-analysis](https://github.com/Leonard-Rule/medicare-cost-drivers-analysis)** has only the SQL,
+result tables and dashboard.
 
 > Built only from public specifications and public synthetic data. No employer code, logic, or data.
 
@@ -50,8 +53,6 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 | 4. PMPM + growth | `sql/04_pmpm.sql` | PMPM by category and year, year-over-year growth, CAGR, dashboard fact tables | Cost driver analyses |
 | 5. Primary care | `sql/05_primary_care.sql` | Spec Steps 1–6: codes, specialty, POS, wellness filter, G0463 split billing, FQHC | "Primary Care Claims Spending", Steps 1–6 |
 | 6. Validation | `sql/06_validation.sql` | Row counts, dollar reconciliation, eligibility match, PMPM rebuild, data-quality flags | — |
-
-Next: retail vs. medical pharmacy (J-codes) and Part D spend on the negotiated (Maximum Fair Price) drugs.
 
 ## Interactive dashboard (`dashboard/`)
 `dashboard/index.html` is a self-contained D3 dashboard. D3 and the data are bundled next to it, so it opens
